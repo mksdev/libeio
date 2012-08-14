@@ -72,4 +72,5 @@ TODO: maybe work around 3.996gb barrier in pread/pwrite as well, maybe readahead
         - wtf. etp_proc returned 0, and no compiler ever complained.
         - remove pread/pwrite emulation, as the only system that lacked them
           (cygwin) provides them for a while now.
+        - provide pread/pwrite implementations for win32.
 

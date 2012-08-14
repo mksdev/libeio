@@ -134,6 +134,41 @@ static void eio_destroy (eio_req *req);
   #define statvfs(path,buf)    EIO_ENOSYS ()
   #define fstatvfs(fd,buf)     EIO_ENOSYS ()
 
+  #define pread(fd,buf,count,offset)  eio__pread  (fd, buf, count, offset)
+  #define pwrite(fd,buf,count,offset) eio__pwrite (fd, buf, count, offset)
+
+  #if __GNUC__
+    typedef long long eio_off_t; /* signed for compatibility to msvc */
+  #else
+    typedef __int64   eio_off_t; /* unsigned not supported by msvc */
+  #endif
+
+  static eio_ssize_t
+  eio__pread (int fd, void *buf, eio_ssize_t count, eio_off_t offset)
+  {
+    OVERLAPPED o = { 0 };
+    DWORD got;
+
+    o.Offset     = offset;
+    o.OffsetHigh = offset >> 32;
+
+    return ReadFile ((HANDLE)EIO_FD_TO_WIN32_HANDLE (fd), buf, count, &got, &o)
+         ? got : -1;
+  }
+
+  static eio_ssize_t
+  eio__pwrite (int fd, void *buf, eio_ssize_t count, eio_off_t offset)
+  {
+    OVERLAPPED o = { 0 };
+    DWORD got;
+
+    o.Offset     = offset;
+    o.OffsetHigh = offset >> 32;
+
+    return WriteFile ((HANDLE)EIO_FD_TO_WIN32_HANDLE (fd), buf, count, &got, &o)
+         ? got : -1;
+  }
+
   /* rename() uses MoveFile, which fails to overwrite */
   #define rename(old,neu)      eio__rename (old, neu)
 
@@ -2194,6 +2229,8 @@ quit:
   X_LOCK (wrklock);
   etp_worker_free (self);
   X_UNLOCK (wrklock);
+
+  return 0;
 }
 
 /*****************************************************************************/

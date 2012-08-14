@@ -6,14 +6,14 @@
  *
  * Redistribution and use in source and binary forms, with or without modifica-
  * tion, are permitted provided that the following conditions are met:
- * 
+ *
  *   1.  Redistributions of source code must retain the above copyright notice,
  *       this list of conditions and the following disclaimer.
- * 
+ *
  *   2.  Redistributions in binary form must reproduce the above copyright
  *       notice, this list of conditions and the following disclaimer in the
  *       documentation and/or other materials provided with the distribution.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR IMPLIED
  * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MER-
  * CHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.  IN NO
@@ -197,12 +197,11 @@ enum
 
   /* these use wd + ptr1, but are emulated */
   EIO_REALPATH,
-  EIO_STATVFS,
   EIO_READDIR,
 
   /* all the following requests use wd + ptr1 as path in xxxat functions */
   EIO_OPEN,
-  EIO_STAT, EIO_LSTAT,
+  EIO_STAT, EIO_LSTAT, EIO_STATVFS,
   EIO_TRUNCATE,
   EIO_UTIME,
   EIO_CHMOD,
