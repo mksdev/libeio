@@ -1920,31 +1920,31 @@ eio__scandir (eio_req *req, etp_worker *self)
                   #endif
                   #ifdef DT_CHR
                     case DT_CHR:  ent->type = EIO_DT_CHR;  break;
-                  #endif          
+                  #endif
                   #ifdef DT_MPC
                     case DT_MPC:  ent->type = EIO_DT_MPC;  break;
-                  #endif          
+                  #endif
                   #ifdef DT_DIR
                     case DT_DIR:  ent->type = EIO_DT_DIR;  break;
-                  #endif          
+                  #endif
                   #ifdef DT_NAM
                     case DT_NAM:  ent->type = EIO_DT_NAM;  break;
-                  #endif          
+                  #endif
                   #ifdef DT_BLK
                     case DT_BLK:  ent->type = EIO_DT_BLK;  break;
-                  #endif          
+                  #endif
                   #ifdef DT_MPB
                     case DT_MPB:  ent->type = EIO_DT_MPB;  break;
-                  #endif          
+                  #endif
                   #ifdef DT_REG
                     case DT_REG:  ent->type = EIO_DT_REG;  break;
-                  #endif          
+                  #endif
                   #ifdef DT_NWK
                     case DT_NWK:  ent->type = EIO_DT_NWK;  break;
-                  #endif          
+                  #endif
                   #ifdef DT_CMP
                     case DT_CMP:  ent->type = EIO_DT_CMP;  break;
-                  #endif          
+                  #endif
                   #ifdef DT_LNK
                     case DT_LNK:  ent->type = EIO_DT_LNK;  break;
                   #endif
