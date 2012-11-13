@@ -9,7 +9,7 @@ AC_SEARCH_LIBS(
    [AC_MSG_ERROR(pthread functions not found)]
 )
 
-AC_CACHE_CHECK(for utimes, ac_cv_utimes, [AC_LINK_IFELSE([AC_LANG_SOURCE([
+AC_CACHE_CHECK(for utimes, ac_cv_utimes, [AC_LINK_IFELSE([AC_LANG_SOURCE([[
 #include <sys/types.h>
 #include <sys/time.h>
 #include <utime.h>
@@ -20,10 +20,10 @@ int main (void)
    res = utimes ("/", tv);
    return 0;
 }
-])],ac_cv_utimes=yes,ac_cv_utimes=no)])
+]])],ac_cv_utimes=yes,ac_cv_utimes=no)])
 test $ac_cv_utimes = yes && AC_DEFINE(HAVE_UTIMES, 1, utimes(2) is available)
 
-AC_CACHE_CHECK(for futimes, ac_cv_futimes, [AC_LINK_IFELSE([AC_LANG_SOURCE([
+AC_CACHE_CHECK(for futimes, ac_cv_futimes, [AC_LINK_IFELSE([AC_LANG_SOURCE([[
 #include <sys/types.h>
 #include <sys/time.h>
 #include <utime.h>
@@ -35,7 +35,7 @@ int main (void)
    res = futimes (fd, tv);
    return 0;
 }
-])],ac_cv_futimes=yes,ac_cv_futimes=no)])
+]])],ac_cv_futimes=yes,ac_cv_futimes=no)])
 test $ac_cv_futimes = yes && AC_DEFINE(HAVE_FUTIMES, 1, futimes(2) is available)
 
 AC_CACHE_CHECK(for readahead, ac_cv_readahead, [AC_LINK_IFELSE([AC_LANG_SOURCE([
