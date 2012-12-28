@@ -318,7 +318,7 @@ static void eio_destroy (eio_req *req);
 /* buffer size for various temporary buffers */
 #define EIO_BUFSIZE 65536
 
-#define dBUF	 				\
+#define dBUF					\
   char *eio_buf = malloc (EIO_BUFSIZE);		\
   errno = ENOMEM;				\
   if (!eio_buf)					\
@@ -1418,15 +1418,14 @@ eio__realpath (struct tmpbuf *tmpbuf, eio_wd wd, const char *path)
       {
         sprintf (tmp1, "/proc/self/fd/%d", fd);
         req->result = readlink (tmp1, res, PATH_MAX);
-        close (fd);
-
         /* here we should probably stat the open file and the disk file, to make sure they still match */
+        close (fd);
 
         if (req->result > 0)
           goto done;
       }
     else if (errno == ELOOP || errno == ENAMETOOLONG || errno == ENOENT || errno == ENOTDIR || errno == EIO)
-      return;
+      return -1;
   }
 #endif
 #endif
@@ -2271,6 +2270,8 @@ eio_api_destroy (eio_req *req)
       return 0;							\
     }
 
+#define SINGLEDOT(ptr) (0[(char *)(ptr)] == '.' && !1[(char *)(ptr)])
+
 static void
 eio_execute (etp_worker *self, eio_req *req)
 {
@@ -2335,9 +2336,15 @@ eio_execute (etp_worker *self, eio_req *req)
       case EIO_OPEN:      req->result = openat    (dirfd, req->ptr1, req->int1, (mode_t)req->int2); break;
 
       case EIO_UNLINK:    req->result = unlinkat  (dirfd, req->ptr1, 0); break;
-      case EIO_RMDIR:     req->result = unlinkat  (dirfd, req->ptr1, AT_REMOVEDIR); break;
+      case EIO_RMDIR:     /* complications arise because "." cannot be removed, so we might have to expand */
+                          req->result = req->wd && SINGLEDOT (req->ptr1)
+                             ? rmdir (req->wd->str)
+                             : unlinkat  (dirfd, req->ptr1, AT_REMOVEDIR); break;
       case EIO_MKDIR:     req->result = mkdirat   (dirfd, req->ptr1, (mode_t)req->int2); break;
-      case EIO_RENAME:    req->result = renameat  (dirfd, req->ptr1, WD2FD ((eio_wd)req->int3), req->ptr2); break;
+      case EIO_RENAME:    /* complications arise because "." cannot be renamed, so we might have to expand */
+                          req->result = req->wd && SINGLEDOT (req->ptr1)
+                             ? rename (req->wd->str, req->ptr2)
+                             : renameat (dirfd, req->ptr1, WD2FD ((eio_wd)req->int3), req->ptr2); break;
       case EIO_LINK:      req->result = linkat    (dirfd, req->ptr1, WD2FD ((eio_wd)req->int3), req->ptr2, 0); break;
       case EIO_SYMLINK:   req->result = symlinkat (req->ptr1, dirfd, req->ptr2); break;
       case EIO_MKNOD:     req->result = mknodat   (dirfd, req->ptr1, (mode_t)req->int2, (dev_t)req->offs); break;
