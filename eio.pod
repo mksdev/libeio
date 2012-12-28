@@ -632,7 +632,7 @@ These requests are specific to libeio and do not correspond to any OS call.
 
 =item eio_mtouch (void *addr, size_t length, int flags, int pri, eio_cb cb, void *data)
 
-Reads (C<flags == 0>) or modifies (C<flags == EIO_MT_MODIFY) the given
+Reads (C<flags == 0>) or modifies (C<flags == EIO_MT_MODIFY>) the given
 memory area, page-wise, that is, it reads (or reads and writes back) the
 first octet of every page that spans the memory area.
 
