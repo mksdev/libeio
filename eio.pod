@@ -27,7 +27,7 @@ or C<readlink>.
 
 It also offers wrappers around C<sendfile> (Solaris, Linux, HP-UX and
 FreeBSD, with emulation on other platforms) and C<readahead> (Linux, with
-emulation elsewhere>).
+emulation elsewhere).
 
 The goal is to enable you to write fully non-blocking programs. For
 example, in a game server, you would not want to freeze for a few seconds
@@ -789,8 +789,6 @@ sure you I<always> set C<< grp->result >> to some sensible value.
 
 void eio_grp_limit     (eio_req *grp, int limit);
 
-
-=back
 
 
 =head1 LOW LEVEL REQUEST API
