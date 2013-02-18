@@ -233,10 +233,18 @@ static void eio_destroy (eio_req *req);
 
   #include <sys/time.h>
   #include <sys/select.h>
-  #include <sys/statvfs.h>
   #include <unistd.h>
   #include <signal.h>
   #include <dirent.h>
+
+  #if ANDROID
+    #include <sys/vfs.h>
+    #define statvfs statfs
+    #define fstatvfs fstatfs
+    #include <asm/page.h> /* supposedly limits.h does #define PAGESIZE PAGESIZE */
+  #else
+    #include <sys/statvfs.h>
+  #endif
 
   #if _POSIX_MEMLOCK || _POSIX_MEMLOCK_RANGE || _POSIX_MAPPED_FILES
     #include <sys/mman.h>
