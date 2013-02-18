@@ -237,7 +237,7 @@ static void eio_destroy (eio_req *req);
   #include <signal.h>
   #include <dirent.h>
 
-  #if ANDROID
+  #ifdef ANDROID
     #include <sys/vfs.h>
     #define statvfs statfs
     #define fstatvfs fstatfs
