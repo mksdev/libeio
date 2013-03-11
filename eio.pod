@@ -178,7 +178,7 @@ lot by removing the idle watcher logic):
 
     ev_idle_init (&repeat_watcher, repeat);
     ev_async_init (&ready_watcher, ready);
-    ev_async_start (loop &watcher);
+    ev_async_start (loop, &watcher);
 
     eio_init (want_poll, 0);
   }
