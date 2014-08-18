@@ -221,11 +221,11 @@ reqq_shift (etp_reqq *q)
 
   for (pri = ETP_NUM_PRI; pri--; )
     {
-      eio_req *req = q->qs[pri];
+      ETP_REQ *req = q->qs[pri];
 
       if (req)
         {
-          if (!(q->qs[pri] = (eio_req *)req->next))
+          if (!(q->qs[pri] = (ETP_REQ *)req->next))
             q->qe[pri] = 0;
 
           return req;
@@ -304,7 +304,7 @@ etp_maybe_start_thread (void)
 static void ecb_cold
 etp_end_thread (void)
 {
-  eio_req *req = calloc (1, sizeof (eio_req)); /* will be freed by worker */
+  ETP_REQ *req = calloc (1, sizeof (ETP_REQ)); /* will be freed by worker */
 
   req->type = ETP_TYPE_QUIT;
   req->pri  = ETP_PRI_MAX - ETP_PRI_MIN;
