@@ -261,16 +261,15 @@ struct eio_req
   long int3;       /* chown, fchown: gid; rename, link: working directory of new name */
   int errorno;     /* errno value on syscall return */
 
-  signed char type;/* EIO_xxx constant ETP */
+  unsigned char flags; /* private */
 
+  signed char type;/* EIO_xxx constant ETP */
+  signed char pri;     /* the priority ETP */
 #if __i386 || __amd64
   unsigned char cancelled; /* ETP */
 #else
   sig_atomic_t  cancelled; /* ETP */
 #endif
-
-  unsigned char flags; /* private */
-  signed char pri;     /* the priority */
 
   void *data;
   eio_cb finish;
