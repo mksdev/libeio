@@ -1859,6 +1859,8 @@ eio_api_destroy (eio_req *req)
   req->pri     = pri;						\
   req->finish  = cb;						\
   req->data    = data;						\
+  req->result  = -1;						\
+  req->errorno = ECANCELED;					\
   req->destroy = eio_api_destroy;
 
 #define SEND eio_submit (req); return req

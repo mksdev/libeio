@@ -8,6 +8,7 @@ TODO: fadvise request
 TODO: fdopendir/utimensat
 TODO: maybe work around 3.996gb barrier in pread/pwrite as well, maybe readahead etc.?
 1.0
+	- for simple request api, initialise result/errorno to -1/ECANCELED.
 	- fix a deadlock where a wakeup signal could be missed when
           a timeout occured at the same time.
 	- use nonstandard but maybe-working-on-bsd fork technique.
