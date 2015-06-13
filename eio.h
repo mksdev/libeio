@@ -1,7 +1,7 @@
 /*
  * libeio API header
  *
- * Copyright (c) 2007,2008,2009,2010,2011,2012 Marc Alexander Lehmann <libeio@schmorp.de>
+ * Copyright (c) 2007,2008,2009,2010,2011,2012,2015 Marc Alexander Lehmann <libeio@schmorp.de>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without modifica-
@@ -171,8 +171,10 @@ enum
 enum
 {
   /* these MUST match the value in linux/falloc.h */
-  EIO_FALLOC_FL_KEEP_SIZE  = 1,
-  EIO_FALLOC_FL_PUNCH_HOLE = 2
+  EIO_FALLOC_FL_KEEP_SIZE      = 0x01,
+  EIO_FALLOC_FL_PUNCH_HOLE     = 0x02,
+  EIO_FALLOC_FL_COLLAPSE_RANGE = 0x08,
+  EIO_FALLOC_FL_ZERO_RANGE     = 0x10
 };
 
 /* timestamps and differences - feel free to use double in your code directly */
