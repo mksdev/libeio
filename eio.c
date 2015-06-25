@@ -2057,8 +2057,10 @@ eio_execute (etp_worker *self, eio_req *req)
 #endif
         break;
 
+#if 0
       case EIO_GROUP:
         abort (); /* handled in eio_request */
+#endif
 
       case EIO_NOP:
         req->result = 0;
