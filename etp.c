@@ -54,6 +54,13 @@
 # define ETP_TYPE_GROUP 1
 #endif
 
+#ifndef ETP_WANT_POLL
+# define ETP_WANT_POLL(pool) pool->want_poll_cb (pool->userdata)
+#endif
+#ifndef ETP_DONE_POLL
+# define ETP_DONE_POLL(pool) pool->done_poll_cb (pool->userdata)
+#endif
+
 #define ETP_NUM_PRI (ETP_PRI_MAX - ETP_PRI_MIN + 1)
 
 #define ETP_TICKS ((1000000 + 1023) >> 10)
@@ -70,25 +77,6 @@ etp_tvdiff (struct timeval *tv1, struct timeval *tv2)
   return  (tv2->tv_sec  - tv1->tv_sec ) * ETP_TICKS
        + ((tv2->tv_usec - tv1->tv_usec) >> 10);
 }
-
-static unsigned int started, idle, wanted = 4;
-
-static void (*want_poll_cb) (void);
-static void (*done_poll_cb) (void);
- 
-static unsigned int max_poll_time;     /* reslock */
-static unsigned int max_poll_reqs;     /* reslock */
-
-static unsigned int nreqs;    /* reqlock */
-static unsigned int nready;   /* reqlock */
-static unsigned int npending; /* reqlock */
-static unsigned int max_idle = 4;      /* maximum number of threads that can idle indefinitely */
-static unsigned int idle_timeout = 10; /* number of seconds after which an idle threads exit */
-
-static xmutex_t wrklock;
-static xmutex_t reslock;
-static xmutex_t reqlock;
-static xcond_t  reqwait;
 
 struct etp_tmpbuf
 {
@@ -121,8 +109,29 @@ typedef struct
 
 struct etp_pool
 {
+   void *userdata;
+
    etp_reqq req_queue;
    etp_reqq res_queue;
+
+   unsigned int started, idle, wanted;
+
+   unsigned int max_poll_time;     /* pool->reslock */
+   unsigned int max_poll_reqs;     /* pool->reslock */
+
+   unsigned int nreqs;    /* pool->reqlock */
+   unsigned int nready;   /* pool->reqlock */
+   unsigned int npending; /* pool->reqlock */
+   unsigned int max_idle;      /* maximum number of threads that can pool->idle indefinitely */
+   unsigned int idle_timeout; /* number of seconds after which an pool->idle threads exit */
+
+   void (*want_poll_cb) (void *userdata);
+   void (*done_poll_cb) (void *userdata);
+ 
+   xmutex_t wrklock;
+   xmutex_t reslock;
+   xmutex_t reqlock;
+   xcond_t  reqwait;
 };
 
 typedef struct etp_pool *etp_pool;
@@ -133,7 +142,7 @@ typedef struct etp_worker
 
   struct etp_tmpbuf tmpbuf;
 
-  /* locked by wrklock */
+  /* locked by pool->wrklock */
   struct etp_worker *prev, *next;
 
   xthread_t tid;
@@ -145,8 +154,8 @@ typedef struct etp_worker
 
 static etp_worker wrk_first; /* NOT etp */
 
-#define ETP_WORKER_LOCK(wrk)   X_LOCK   (wrklock)
-#define ETP_WORKER_UNLOCK(wrk) X_UNLOCK (wrklock)
+#define ETP_WORKER_LOCK(wrk)   X_LOCK   (pool->wrklock)
+#define ETP_WORKER_UNLOCK(wrk) X_UNLOCK (pool->wrklock)
 
 /* worker threads management */
 
@@ -170,9 +179,9 @@ ETP_API_DECL unsigned int
 etp_nreqs (etp_pool pool)
 {
   int retval;
-  if (WORDACCESS_UNSAFE) X_LOCK   (reqlock);
-  retval = nreqs;
-  if (WORDACCESS_UNSAFE) X_UNLOCK (reqlock);
+  if (WORDACCESS_UNSAFE) X_LOCK   (pool->reqlock);
+  retval = pool->nreqs;
+  if (WORDACCESS_UNSAFE) X_UNLOCK (pool->reqlock);
   return retval;
 }
 
@@ -181,9 +190,9 @@ etp_nready (etp_pool pool)
 {
   unsigned int retval;
 
-  if (WORDACCESS_UNSAFE) X_LOCK   (reqlock);
-  retval = nready;
-  if (WORDACCESS_UNSAFE) X_UNLOCK (reqlock);
+  if (WORDACCESS_UNSAFE) X_LOCK   (pool->reqlock);
+  retval = pool->nready;
+  if (WORDACCESS_UNSAFE) X_UNLOCK (pool->reqlock);
 
   return retval;
 }
@@ -193,9 +202,9 @@ etp_npending (etp_pool pool)
 {
   unsigned int retval;
 
-  if (WORDACCESS_UNSAFE) X_LOCK   (reqlock);
-  retval = npending;
-  if (WORDACCESS_UNSAFE) X_UNLOCK (reqlock);
+  if (WORDACCESS_UNSAFE) X_LOCK   (pool->reqlock);
+  retval = pool->npending;
+  if (WORDACCESS_UNSAFE) X_UNLOCK (pool->reqlock);
 
   return retval;
 }
@@ -205,9 +214,9 @@ etp_nthreads (etp_pool pool)
 {
   unsigned int retval;
 
-  if (WORDACCESS_UNSAFE) X_LOCK   (reqlock);
-  retval = started;
-  if (WORDACCESS_UNSAFE) X_UNLOCK (reqlock);
+  if (WORDACCESS_UNSAFE) X_LOCK   (pool->reqlock);
+  retval = pool->started;
+  if (WORDACCESS_UNSAFE) X_UNLOCK (pool->reqlock);
 
   return retval;
 }
@@ -267,12 +276,12 @@ reqq_shift (etp_reqq *q)
 }
 
 ETP_API_DECL int ecb_cold
-etp_init (etp_pool pool, void (*want_poll)(void), void (*done_poll)(void))
+etp_init (etp_pool pool, void (*want_poll)(void *userdata), void (*done_poll)(void *userdata))
 {
-  X_MUTEX_CREATE (wrklock);
-  X_MUTEX_CREATE (reslock);
-  X_MUTEX_CREATE (reqlock);
-  X_COND_CREATE  (reqwait);
+  X_MUTEX_CREATE (pool->wrklock);
+  X_MUTEX_CREATE (pool->reslock);
+  X_MUTEX_CREATE (pool->reqlock);
+  X_COND_CREATE  (pool->reqwait);
 
   reqq_init (&pool->req_queue);
   reqq_init (&pool->res_queue);
@@ -280,14 +289,18 @@ etp_init (etp_pool pool, void (*want_poll)(void), void (*done_poll)(void))
   wrk_first.next =
   wrk_first.prev = &wrk_first;
 
-  started  = 0;
-  idle     = 0;
-  nreqs    = 0;
-  nready   = 0;
-  npending = 0;
+  pool->started  = 0;
+  pool->idle     = 0;
+  pool->nreqs    = 0;
+  pool->nready   = 0;
+  pool->npending = 0;
+  pool->wanted   = 4;
 
-  want_poll_cb = want_poll;
-  done_poll_cb = done_poll;
+  pool->max_idle = 4;      /* maximum number of threads that can pool->idle indefinitely */
+  pool->idle_timeout = 10; /* number of seconds after which an pool->idle threads exit */
+
+  pool->want_poll_cb = want_poll;
+  pool->done_poll_cb = done_poll;
 
   return 0;
 }
@@ -325,7 +338,7 @@ X_THREAD_PROC (etp_proc)
     {
       ts.tv_sec = 0;
 
-      X_LOCK (reqlock);
+      X_LOCK (pool->reqlock);
 
       for (;;)
         {
@@ -336,58 +349,58 @@ X_THREAD_PROC (etp_proc)
 
           if (ts.tv_sec == 1) /* no request, but timeout detected, let's quit */
             {
-              X_UNLOCK (reqlock);
-              X_LOCK (wrklock);
-              --started;
-              X_UNLOCK (wrklock);
+              X_UNLOCK (pool->reqlock);
+              X_LOCK (pool->wrklock);
+              --pool->started;
+              X_UNLOCK (pool->wrklock);
               goto quit;
             }
 
-          ++idle;
+          ++pool->idle;
 
-          if (idle <= max_idle)
-            /* we are allowed to idle, so do so without any timeout */
-            X_COND_WAIT (reqwait, reqlock);
+          if (pool->idle <= pool->max_idle)
+            /* we are allowed to pool->idle, so do so without any timeout */
+            X_COND_WAIT (pool->reqwait, pool->reqlock);
           else
             {
               /* initialise timeout once */
               if (!ts.tv_sec)
-                ts.tv_sec = time (0) + idle_timeout;
+                ts.tv_sec = time (0) + pool->idle_timeout;
 
-              if (X_COND_TIMEDWAIT (reqwait, reqlock, ts) == ETIMEDOUT)
+              if (X_COND_TIMEDWAIT (pool->reqwait, pool->reqlock, ts) == ETIMEDOUT)
                 ts.tv_sec = 1; /* assuming this is not a value computed above.,.. */
             }
 
-          --idle;
+          --pool->idle;
         }
 
-      --nready;
+      --pool->nready;
 
-      X_UNLOCK (reqlock);
+      X_UNLOCK (pool->reqlock);
      
       if (req->type == ETP_TYPE_QUIT)
         goto quit;
 
       ETP_EXECUTE (self, req);
 
-      X_LOCK (reslock);
+      X_LOCK (pool->reslock);
 
-      ++npending;
+      ++pool->npending;
 
-      if (!reqq_push (&pool->res_queue, req) && want_poll_cb)
-        want_poll_cb ();
+      if (!reqq_push (&pool->res_queue, req))
+        ETP_WANT_POLL (poll);
 
       etp_worker_clear (self);
 
-      X_UNLOCK (reslock);
+      X_UNLOCK (pool->reslock);
     }
 
 quit:
   free (req);
 
-  X_LOCK (wrklock);
+  X_LOCK (pool->wrklock);
   etp_worker_free (self);
-  X_UNLOCK (wrklock);
+  X_UNLOCK (pool->wrklock);
 
   return 0;
 }
@@ -402,7 +415,7 @@ etp_start_thread (etp_pool pool)
 
   wrk->pool = pool;
 
-  X_LOCK (wrklock);
+  X_LOCK (pool->wrklock);
 
   if (xthread_create (&wrk->tid, etp_proc, (void *)wrk))
     {
@@ -410,21 +423,21 @@ etp_start_thread (etp_pool pool)
       wrk->next = wrk_first.next;
       wrk_first.next->prev = wrk;
       wrk_first.next = wrk;
-      ++started;
+      ++pool->started;
     }
   else
     free (wrk);
 
-  X_UNLOCK (wrklock);
+  X_UNLOCK (pool->wrklock);
 }
 
 static void
 etp_maybe_start_thread (etp_pool pool)
 {
-  if (ecb_expect_true (etp_nthreads (pool) >= wanted))
+  if (ecb_expect_true (etp_nthreads (pool) >= pool->wanted))
     return;
   
-  /* todo: maybe use idle here, but might be less exact */
+  /* todo: maybe use pool->idle here, but might be less exact */
   if (ecb_expect_true (0 <= (int)etp_nthreads (pool) + (int)etp_npending (pool) - (int)etp_nreqs (pool)))
     return;
 
@@ -439,14 +452,14 @@ etp_end_thread (etp_pool pool)
   req->type = ETP_TYPE_QUIT;
   req->pri  = ETP_PRI_MAX - ETP_PRI_MIN;
 
-  X_LOCK (reqlock);
+  X_LOCK (pool->reqlock);
   reqq_push (&pool->req_queue, req);
-  X_COND_SIGNAL (reqwait);
-  X_UNLOCK (reqlock);
+  X_COND_SIGNAL (pool->reqwait);
+  X_UNLOCK (pool->reqlock);
 
-  X_LOCK (wrklock);
-  --started;
-  X_UNLOCK (wrklock);
+  X_LOCK (pool->wrklock);
+  --pool->started;
+  X_UNLOCK (pool->wrklock);
 }
 
 ETP_API_DECL int
@@ -456,10 +469,10 @@ etp_poll (etp_pool pool)
   unsigned int maxtime;
   struct timeval tv_start, tv_now;
 
-  X_LOCK (reslock);
-  maxreqs = max_poll_reqs;
-  maxtime = max_poll_time;
-  X_UNLOCK (reslock);
+  X_LOCK (pool->reslock);
+  maxreqs = pool->max_poll_reqs;
+  maxtime = pool->max_poll_time;
+  X_UNLOCK (pool->reslock);
 
   if (maxtime)
     gettimeofday (&tv_start, 0);
@@ -470,25 +483,25 @@ etp_poll (etp_pool pool)
 
       etp_maybe_start_thread (pool);
 
-      X_LOCK (reslock);
+      X_LOCK (pool->reslock);
       req = reqq_shift (&pool->res_queue);
 
       if (req)
         {
-          --npending;
+          --pool->npending;
 
-          if (!pool->res_queue.size && done_poll_cb)
-            done_poll_cb ();
+          if (!pool->res_queue.size)
+            ETP_DONE_POLL (pool->userdata);
         }
 
-      X_UNLOCK (reslock);
+      X_UNLOCK (pool->reslock);
 
       if (!req)
         return 0;
 
-      X_LOCK (reqlock);
-      --nreqs;
-      X_UNLOCK (reqlock);
+      X_LOCK (pool->reqlock);
+      --pool->nreqs;
+      X_UNLOCK (pool->reqlock);
 
       if (ecb_expect_false (req->type == ETP_TYPE_GROUP && req->size))
         {
@@ -547,27 +560,27 @@ etp_submit (etp_pool pool, ETP_REQ *req)
   if (ecb_expect_false (req->type == ETP_TYPE_GROUP))
     {
       /* I hope this is worth it :/ */
-      X_LOCK (reqlock);
-      ++nreqs;
-      X_UNLOCK (reqlock);
+      X_LOCK (pool->reqlock);
+      ++pool->nreqs;
+      X_UNLOCK (pool->reqlock);
 
-      X_LOCK (reslock);
+      X_LOCK (pool->reslock);
 
-      ++npending;
+      ++pool->npending;
 
-      if (!reqq_push (&pool->res_queue, req) && want_poll_cb)
-        want_poll_cb ();
+      if (!reqq_push (&pool->res_queue, req))
+        ETP_WANT_POLL (pool);
 
-      X_UNLOCK (reslock);
+      X_UNLOCK (pool->reslock);
     }
   else
     {
-      X_LOCK (reqlock);
-      ++nreqs;
-      ++nready;
+      X_LOCK (pool->reqlock);
+      ++pool->nreqs;
+      ++pool->nready;
       reqq_push (&pool->req_queue, req);
-      X_COND_SIGNAL (reqwait);
-      X_UNLOCK (reqlock);
+      X_COND_SIGNAL (pool->reqwait);
+      X_UNLOCK (pool->reqlock);
 
       etp_maybe_start_thread (pool);
     }
@@ -576,49 +589,49 @@ etp_submit (etp_pool pool, ETP_REQ *req)
 ETP_API_DECL void ecb_cold
 etp_set_max_poll_time (etp_pool pool, double nseconds)
 {
-  if (WORDACCESS_UNSAFE) X_LOCK   (reslock);
-  max_poll_time = nseconds * ETP_TICKS;
-  if (WORDACCESS_UNSAFE) X_UNLOCK (reslock);
+  if (WORDACCESS_UNSAFE) X_LOCK   (pool->reslock);
+  pool->max_poll_time = nseconds * ETP_TICKS;
+  if (WORDACCESS_UNSAFE) X_UNLOCK (pool->reslock);
 }
 
 ETP_API_DECL void ecb_cold
 etp_set_max_poll_reqs (etp_pool pool, unsigned int maxreqs)
 {
-  if (WORDACCESS_UNSAFE) X_LOCK   (reslock);
-  max_poll_reqs = maxreqs;
-  if (WORDACCESS_UNSAFE) X_UNLOCK (reslock);
+  if (WORDACCESS_UNSAFE) X_LOCK   (pool->reslock);
+  pool->max_poll_reqs = maxreqs;
+  if (WORDACCESS_UNSAFE) X_UNLOCK (pool->reslock);
 }
 
 ETP_API_DECL void ecb_cold
 etp_set_max_idle (etp_pool pool, unsigned int nthreads)
 {
-  if (WORDACCESS_UNSAFE) X_LOCK   (reqlock);
-  max_idle = nthreads;
-  if (WORDACCESS_UNSAFE) X_UNLOCK (reqlock);
+  if (WORDACCESS_UNSAFE) X_LOCK   (pool->reqlock);
+  pool->max_idle = nthreads;
+  if (WORDACCESS_UNSAFE) X_UNLOCK (pool->reqlock);
 }
 
 ETP_API_DECL void ecb_cold
 etp_set_idle_timeout (etp_pool pool, unsigned int seconds)
 {
-  if (WORDACCESS_UNSAFE) X_LOCK   (reqlock);
-  idle_timeout = seconds;
-  if (WORDACCESS_UNSAFE) X_UNLOCK (reqlock);
+  if (WORDACCESS_UNSAFE) X_LOCK   (pool->reqlock);
+  pool->idle_timeout = seconds;
+  if (WORDACCESS_UNSAFE) X_UNLOCK (pool->reqlock);
 }
 
 ETP_API_DECL void ecb_cold
 etp_set_min_parallel (etp_pool pool, unsigned int nthreads)
 {
-  if (wanted < nthreads)
-    wanted = nthreads;
+  if (pool->wanted < nthreads)
+    pool->wanted = nthreads;
 }
 
 ETP_API_DECL void ecb_cold
 etp_set_max_parallel (etp_pool pool, unsigned int nthreads)
 {
-  if (wanted > nthreads)
-    wanted = nthreads;
+  if (pool->wanted > nthreads)
+    pool->wanted = nthreads;
 
-  while (started > wanted)
+  while (pool->started > pool->wanted)
     etp_end_thread (pool);
 }
 

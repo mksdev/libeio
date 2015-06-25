@@ -368,8 +368,14 @@ struct eio_pwd
 #define ETP_TYPE_QUIT -1
 #define ETP_TYPE_GROUP EIO_GROUP
 
-struct etp_worker;
+static void eio_nop_callback (void) { }
+static void (*eio_want_poll_cb)(void) = eio_nop_callback;
+static void (*eio_done_poll_cb)(void) = eio_nop_callback;
 
+#define ETP_WANT_POLL(pool) eio_want_poll_cb ()
+#define ETP_DONE_POLL(pool) eio_done_poll_cb ()
+
+struct etp_worker;
 #define ETP_REQ eio_req
 #define ETP_DESTROY(req) eio_destroy (req)
 static int eio_finish (eio_req *req);
@@ -1708,9 +1714,9 @@ eio__statvfsat (int dirfd, const char *path, struct statvfs *buf)
 #define ALLOC(len)				\
   if (!req->ptr2)				\
     {						\
-      X_LOCK (wrklock);				\
+      X_LOCK (EIO_POOL->wrklock);		\
       req->flags |= EIO_FLAG_PTR2_FREE;		\
-      X_UNLOCK (wrklock);			\
+      X_UNLOCK (EIO_POOL->wrklock);		\
       req->ptr2 = malloc (len);			\
       if (!req->ptr2)				\
         {					\
@@ -1725,7 +1731,10 @@ eio__statvfsat (int dirfd, const char *path, struct statvfs *buf)
 int ecb_cold
 eio_init (void (*want_poll)(void), void (*done_poll)(void))
 {
-  return etp_init (EIO_POOL, want_poll, done_poll);
+  eio_want_poll_cb = want_poll;
+  eio_done_poll_cb = done_poll;
+
+  return etp_init (EIO_POOL, 0, 0);
 }
 
 ecb_inline void
