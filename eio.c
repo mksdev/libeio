@@ -1734,7 +1734,7 @@ eio_init (void (*want_poll)(void), void (*done_poll)(void))
   eio_want_poll_cb = want_poll;
   eio_done_poll_cb = done_poll;
 
-  return etp_init (EIO_POOL, 0, 0);
+  return etp_init (EIO_POOL, 0, 0, 0);
 }
 
 ecb_inline void

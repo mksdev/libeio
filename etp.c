@@ -107,6 +107,24 @@ typedef struct
   int size;
 } etp_reqq;
 
+typedef struct etp_pool *etp_pool;
+
+typedef struct etp_worker
+{
+  etp_pool pool;
+
+  struct etp_tmpbuf tmpbuf;
+
+  /* locked by pool->wrklock */
+  struct etp_worker *prev, *next;
+
+  xthread_t tid;
+
+#ifdef ETP_WORKER_COMMON
+  ETP_WORKER_COMMON
+#endif
+} etp_worker;
+
 struct etp_pool
 {
    void *userdata;
@@ -135,24 +153,6 @@ struct etp_pool
 
    etp_worker wrk_first;
 };
-
-typedef struct etp_pool *etp_pool;
-
-typedef struct etp_worker
-{
-  etp_pool pool;
-
-  struct etp_tmpbuf tmpbuf;
-
-  /* locked by pool->wrklock */
-  struct etp_worker *prev, *next;
-
-  xthread_t tid;
-
-#ifdef ETP_WORKER_COMMON
-  ETP_WORKER_COMMON
-#endif
-} etp_worker;
 
 #define ETP_WORKER_LOCK(wrk)   X_LOCK   (pool->wrklock)
 #define ETP_WORKER_UNLOCK(wrk) X_UNLOCK (pool->wrklock)
@@ -420,7 +420,7 @@ etp_start_thread (etp_pool pool)
 
   if (xthread_create (&wrk->tid, etp_proc, (void *)wrk))
     {
-      wrk->prev = &wpool->rk_first;
+      wrk->prev = &pool->wrk_first;
       wrk->next = pool->wrk_first.next;
       pool->wrk_first.next->prev = wrk;
       pool->wrk_first.next = wrk;
