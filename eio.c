@@ -122,6 +122,7 @@ static void eio_destroy (eio_req *req);
   #define chmod(path,mode)     _chmod (path, mode)
   #define dup(fd)              _dup (fd)
   #define dup2(fd1,fd2)        _dup2 (fd1, fd2)
+  #define pipe(fds)            _pipe (fds, 4096, O_BINARY)
 
   #define fchmod(fd,mode)      EIO_ENOSYS ()
   #define chown(path,uid,gid)  EIO_ENOSYS ()
