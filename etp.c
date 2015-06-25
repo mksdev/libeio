@@ -132,6 +132,8 @@ struct etp_pool
    xmutex_t reslock;
    xmutex_t reqlock;
    xcond_t  reqwait;
+
+   etp_worker wrk_first;
 };
 
 typedef struct etp_pool *etp_pool;
@@ -151,8 +153,6 @@ typedef struct etp_worker
   ETP_WORKER_COMMON
 #endif
 } etp_worker;
-
-static etp_worker wrk_first; /* NOT etp */
 
 #define ETP_WORKER_LOCK(wrk)   X_LOCK   (pool->wrklock)
 #define ETP_WORKER_UNLOCK(wrk) X_UNLOCK (pool->wrklock)
@@ -276,7 +276,7 @@ reqq_shift (etp_reqq *q)
 }
 
 ETP_API_DECL int ecb_cold
-etp_init (etp_pool pool, void (*want_poll)(void *userdata), void (*done_poll)(void *userdata))
+etp_init (etp_pool pool, void *userdata, void (*want_poll)(void *userdata), void (*done_poll)(void *userdata))
 {
   X_MUTEX_CREATE (pool->wrklock);
   X_MUTEX_CREATE (pool->reslock);
@@ -286,8 +286,8 @@ etp_init (etp_pool pool, void (*want_poll)(void *userdata), void (*done_poll)(vo
   reqq_init (&pool->req_queue);
   reqq_init (&pool->res_queue);
 
-  wrk_first.next =
-  wrk_first.prev = &wrk_first;
+  pool->wrk_first.next =
+  pool->wrk_first.prev = &pool->wrk_first;
 
   pool->started  = 0;
   pool->idle     = 0;
@@ -299,6 +299,7 @@ etp_init (etp_pool pool, void (*want_poll)(void *userdata), void (*done_poll)(vo
   pool->max_idle = 4;      /* maximum number of threads that can pool->idle indefinitely */
   pool->idle_timeout = 10; /* number of seconds after which an pool->idle threads exit */
 
+  pool->userdata     = userdata;
   pool->want_poll_cb = want_poll;
   pool->done_poll_cb = done_poll;
 
@@ -419,10 +420,10 @@ etp_start_thread (etp_pool pool)
 
   if (xthread_create (&wrk->tid, etp_proc, (void *)wrk))
     {
-      wrk->prev = &wrk_first;
-      wrk->next = wrk_first.next;
-      wrk_first.next->prev = wrk;
-      wrk_first.next = wrk;
+      wrk->prev = &wpool->rk_first;
+      wrk->next = pool->wrk_first.next;
+      pool->wrk_first.next->prev = wrk;
+      pool->wrk_first.next = wrk;
       ++pool->started;
     }
   else
