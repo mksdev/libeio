@@ -1,7 +1,7 @@
 /*
  * libetp implementation
  *
- * Copyright (c) 2007,2008,2009,2010,2011,2012,2013 Marc Alexander Lehmann <libetp@schmorp.de>
+ * Copyright (c) 2007,2008,2009,2010,2011,2012,2013,2015 Marc Alexander Lehmann <libetp@schmorp.de>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without modifica-
@@ -345,7 +345,7 @@ X_THREAD_PROC (etp_proc)
         {
           req = reqq_shift (&pool->req_queue);
 
-          if (req)
+          if (ecb_expect_true (req))
             break;
 
           if (ts.tv_sec == 1) /* no request, but timeout detected, let's quit */
@@ -379,7 +379,7 @@ X_THREAD_PROC (etp_proc)
 
       X_UNLOCK (pool->reqlock);
      
-      if (req->type == ETP_TYPE_QUIT)
+      if (ecb_expect_false (req->type == ETP_TYPE_QUIT))
         goto quit;
 
       ETP_EXECUTE (self, req);
@@ -389,7 +389,7 @@ X_THREAD_PROC (etp_proc)
       ++pool->npending;
 
       if (!reqq_push (&pool->res_queue, req))
-        ETP_WANT_POLL (poll);
+        ETP_WANT_POLL (pool);
 
       etp_worker_clear (self);
 
@@ -487,17 +487,17 @@ etp_poll (etp_pool pool)
       X_LOCK (pool->reslock);
       req = reqq_shift (&pool->res_queue);
 
-      if (req)
+      if (ecb_expect_true (req))
         {
           --pool->npending;
 
           if (!pool->res_queue.size)
-            ETP_DONE_POLL (pool->userdata);
+            ETP_DONE_POLL (pool);
         }
 
       X_UNLOCK (pool->reslock);
 
-      if (!req)
+      if (ecb_expect_false (!req))
         return 0;
 
       X_LOCK (pool->reqlock);
