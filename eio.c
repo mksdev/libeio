@@ -386,12 +386,12 @@ grp_try_feed (eio_req *grp)
 {
   while (grp->size < grp->int2 && !EIO_CANCELLED (grp))
     {
-      grp->flags &= ~EIO_FLAG_GROUPADD;
+      grp->flags &= ~ETP_FLAG_GROUPADD;
 
       EIO_FEED (grp);
 
       /* stop if no progress has been made */
-      if (!(grp->flags & EIO_FLAG_GROUPADD))
+      if (!(grp->flags & ETP_FLAG_GROUPADD))
         {
           grp->feed = 0;
           break;
@@ -408,7 +408,7 @@ grp_dec (eio_req *grp)
   grp_try_feed (grp);
 
   /* finish, if done */
-  if (!grp->size && grp->int1)
+  if (!grp->size && grp->flags & ETP_FLAG_DELAYED)
     return eio_finish (grp);
   else
     return 0;
@@ -1717,106 +1717,6 @@ eio__statvfsat (int dirfd, const char *path, struct statvfs *buf)
         }					\
     }
 
-static void ecb_noinline ecb_cold
-etp_proc_init (void)
-{
-#if HAVE_PRCTL_SET_NAME
-  /* provide a more sensible "thread name" */
-  char name[16 + 1];
-  const int namelen = sizeof (name) - 1;
-  int len;
-
-  prctl (PR_GET_NAME, (unsigned long)name, 0, 0, 0);
-  name [namelen] = 0;
-  len = strlen (name);
-  strcpy (name + (len <= namelen - 4 ? len : namelen - 4), "/eio");
-  prctl (PR_SET_NAME, (unsigned long)name, 0, 0, 0);
-#endif
-}
-
-/* TODO: move somehow to etp.c */
-X_THREAD_PROC (etp_proc)
-{
-  ETP_REQ *req;
-  struct timespec ts;
-  etp_worker *self = (etp_worker *)thr_arg;
-
-  etp_proc_init ();
-
-  /* try to distribute timeouts somewhat evenly */
-  ts.tv_nsec = ((unsigned long)self & 1023UL) * (1000000000UL / 1024UL);
-
-  for (;;)
-    {
-      ts.tv_sec = 0;
-
-      X_LOCK (reqlock);
-
-      for (;;)
-        {
-          req = reqq_shift (&req_queue);
-
-          if (req)
-            break;
-
-          if (ts.tv_sec == 1) /* no request, but timeout detected, let's quit */
-            {
-              X_UNLOCK (reqlock);
-              X_LOCK (wrklock);
-              --started;
-              X_UNLOCK (wrklock);
-              goto quit;
-            }
-
-          ++idle;
-
-          if (idle <= max_idle)
-            /* we are allowed to idle, so do so without any timeout */
-            X_COND_WAIT (reqwait, reqlock);
-          else
-            {
-              /* initialise timeout once */
-              if (!ts.tv_sec)
-                ts.tv_sec = time (0) + idle_timeout;
-
-              if (X_COND_TIMEDWAIT (reqwait, reqlock, ts) == ETIMEDOUT)
-                ts.tv_sec = 1; /* assuming this is not a value computed above.,.. */
-            }
-
-          --idle;
-        }
-
-      --nready;
-
-      X_UNLOCK (reqlock);
-     
-      if (req->type == ETP_TYPE_QUIT)
-        goto quit;
-
-      ETP_EXECUTE (self, req);
-
-      X_LOCK (reslock);
-
-      ++npending;
-
-      if (!reqq_push (&res_queue, req) && want_poll_cb)
-        want_poll_cb ();
-
-      etp_worker_clear (self);
-
-      X_UNLOCK (reslock);
-    }
-
-quit:
-  free (req);
-
-  X_LOCK (wrklock);
-  etp_worker_free (self);
-  X_UNLOCK (wrklock);
-
-  return 0;
-}
-
 /*****************************************************************************/
 
 int ecb_cold
@@ -2370,7 +2270,7 @@ eio_grp_add (eio_req *grp, eio_req *req)
 {
   assert (("cannot add requests to IO::AIO::GRP after the group finished", grp->int1 != 2));
 
-  grp->flags |= EIO_FLAG_GROUPADD;
+  grp->flags |= ETP_FLAG_GROUPADD;
 
   ++grp->size;
   req->grp = grp;

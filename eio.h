@@ -287,7 +287,6 @@ struct eio_req
 enum {
   EIO_FLAG_PTR1_FREE = 0x01, /* need to free(ptr1) */
   EIO_FLAG_PTR2_FREE = 0x02, /* need to free(ptr2) */
-  EIO_FLAG_GROUPADD  = 0x04  /* some request was added to the group */
 };
 
 /* undocumented/unsupported/private helper */
