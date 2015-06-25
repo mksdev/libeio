@@ -85,9 +85,27 @@ static xmutex_t reslock;
 static xmutex_t reqlock;
 static xcond_t  reqwait;
 
+struct etp_tmpbuf
+{
+  void *ptr;
+  int len;
+};
+
+static void *
+etp_tmpbuf_get (struct etp_tmpbuf *buf, int len)
+{
+  if (buf->len < len)
+    {
+      free (buf->ptr);
+      buf->ptr = malloc (buf->len = len);
+    }
+
+  return buf->ptr;
+}
+
 typedef struct etp_worker
 {
-  struct tmpbuf tmpbuf;
+  struct etp_tmpbuf tmpbuf;
 
   /* locked by wrklock */
   struct etp_worker *prev, *next;

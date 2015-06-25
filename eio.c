@@ -338,25 +338,7 @@ static void eio_destroy (eio_req *req);
 
 /*****************************************************************************/
 
-struct tmpbuf
-{
-  void *ptr;
-  int len;
-};
-
-static void *
-tmpbuf_get (struct tmpbuf *buf, int len)
-{
-  if (buf->len < len)
-    {
-      free (buf->ptr);
-      buf->ptr = malloc (buf->len = len);
-    }
-
-  return buf->ptr;
-}
-
-struct tmpbuf;
+struct etp_tmpbuf;
 
 #if _POSIX_VERSION >= 200809L
   #define HAVE_AT 1
@@ -366,7 +348,7 @@ struct tmpbuf;
   #endif
 #else
   #define HAVE_AT 0
-  static const char *wd_expand (struct tmpbuf *tmpbuf, eio_wd wd, const char *path);
+  static const char *wd_expand (struct etp_tmpbuf *tmpbuf, eio_wd wd, const char *path);
 #endif
 
 struct eio_pwd
@@ -969,7 +951,7 @@ eio__lseek (eio_req *req)
 
 /* result will always end up in tmpbuf, there is always space for adding a 0-byte */
 static int
-eio__realpath (struct tmpbuf *tmpbuf, eio_wd wd, const char *path)
+eio__realpath (struct etp_tmpbuf *tmpbuf, eio_wd wd, const char *path)
 {
   char *res;
   const char *rel = path;
@@ -988,7 +970,7 @@ eio__realpath (struct tmpbuf *tmpbuf, eio_wd wd, const char *path)
   if (!*rel)
     return -1;
 
-  res  = tmpbuf_get (tmpbuf, PATH_MAX * 3);
+  res = etp_tmpbuf_get (tmpbuf, PATH_MAX * 3);
 #ifdef _WIN32
   if (_access (rel, 4) != 0)
     return -1;
@@ -1607,7 +1589,7 @@ eio__scandir (eio_req *req, etp_worker *self)
 /* a bit like realpath, but usually faster because it doesn'T have to return */
 /* an absolute or canonical path */
 static const char *
-wd_expand (struct tmpbuf *tmpbuf, eio_wd wd, const char *path)
+wd_expand (struct etp_tmpbuf *tmpbuf, eio_wd wd, const char *path)
 {
   if (!wd || *path == '/')
     return path;
@@ -1619,7 +1601,7 @@ wd_expand (struct tmpbuf *tmpbuf, eio_wd wd, const char *path)
     int l1 = wd->len;
     int l2 = strlen (path);
 
-    char *res = tmpbuf_get (tmpbuf, l1 + l2 + 2);
+    char *res = etp_tmpbuf_get (tmpbuf, l1 + l2 + 2);
 
     memcpy (res, wd->str, l1);
     res [l1] = '/';
@@ -1632,7 +1614,7 @@ wd_expand (struct tmpbuf *tmpbuf, eio_wd wd, const char *path)
 #endif
 
 static eio_wd
-eio__wd_open_sync (struct tmpbuf *tmpbuf, eio_wd wd, const char *path)
+eio__wd_open_sync (struct etp_tmpbuf *tmpbuf, eio_wd wd, const char *path)
 {
   int fd;
   eio_wd res;
@@ -1664,7 +1646,7 @@ eio__wd_open_sync (struct tmpbuf *tmpbuf, eio_wd wd, const char *path)
 eio_wd
 eio_wd_open_sync (eio_wd wd, const char *path)
 {
-  struct tmpbuf tmpbuf = { 0 };
+  struct etp_tmpbuf tmpbuf = { };
   wd = eio__wd_open_sync (&tmpbuf, wd, path);
   free (tmpbuf.ptr);
 
