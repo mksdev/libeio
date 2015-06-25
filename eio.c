@@ -379,6 +379,9 @@ static void eio_execute (struct etp_worker *self, eio_req *req);
 
 #include "etp.c"
 
+static struct etp_pool eio_pool;
+#define EIO_POOL (&eio_pool)
+
 /*****************************************************************************/
 
 static void
@@ -454,84 +457,84 @@ eio_finish (eio_req *req)
 void
 eio_grp_cancel (eio_req *grp)
 {
-  etp_grp_cancel (grp);
+  etp_grp_cancel (EIO_POOL, grp);
 }
 
 void
 eio_cancel (eio_req *req)
 {
-  etp_cancel (req);
+  etp_cancel (EIO_POOL, req);
 }
 
 void
 eio_submit (eio_req *req)
 {
-  etp_submit (req);
+  etp_submit (EIO_POOL, req);
 }
 
 unsigned int
 eio_nreqs (void)
 {
-  return etp_nreqs ();
+  return etp_nreqs (EIO_POOL);
 }
 
 unsigned int
 eio_nready (void)
 {
-  return etp_nready ();
+  return etp_nready (EIO_POOL);
 }
 
 unsigned int
 eio_npending (void)
 {
-  return etp_npending ();
+  return etp_npending (EIO_POOL);
 }
 
 unsigned int ecb_cold
 eio_nthreads (void)
 {
-  return etp_nthreads ();
+  return etp_nthreads (EIO_POOL);
 }
 
 void ecb_cold
 eio_set_max_poll_time (double nseconds)
 {
-  etp_set_max_poll_time (nseconds);
+  etp_set_max_poll_time (EIO_POOL, nseconds);
 }
 
 void ecb_cold
 eio_set_max_poll_reqs (unsigned int maxreqs)
 {
-  etp_set_max_poll_reqs (maxreqs);
+  etp_set_max_poll_reqs (EIO_POOL, maxreqs);
 }
 
 void ecb_cold
 eio_set_max_idle (unsigned int nthreads)
 {
-  etp_set_max_idle (nthreads);
+  etp_set_max_idle (EIO_POOL, nthreads);
 }
 
 void ecb_cold
 eio_set_idle_timeout (unsigned int seconds)
 {
-  etp_set_idle_timeout (seconds);
+  etp_set_idle_timeout (EIO_POOL, seconds);
 }
 
 void ecb_cold
 eio_set_min_parallel (unsigned int nthreads)
 {
-  etp_set_min_parallel (nthreads);
+  etp_set_min_parallel (EIO_POOL, nthreads);
 }
 
 void ecb_cold
 eio_set_max_parallel (unsigned int nthreads)
 {
-  etp_set_max_parallel (nthreads);
+  etp_set_max_parallel (EIO_POOL, nthreads);
 }
 
 int eio_poll (void)
 {
-  return etp_poll ();
+  return etp_poll (EIO_POOL);
 }
 
 /*****************************************************************************/
@@ -1722,7 +1725,7 @@ eio__statvfsat (int dirfd, const char *path, struct statvfs *buf)
 int ecb_cold
 eio_init (void (*want_poll)(void), void (*done_poll)(void))
 {
-  return etp_init (want_poll, done_poll);
+  return etp_init (EIO_POOL, want_poll, done_poll);
 }
 
 ecb_inline void

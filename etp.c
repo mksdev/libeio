@@ -108,8 +108,29 @@ etp_tmpbuf_get (struct etp_tmpbuf *buf, int len)
   return buf->ptr;
 }
 
+/*
+ * a somewhat faster data structure might be nice, but
+ * with 8 priorities this actually needs <20 insns
+ * per shift, the most expensive operation.
+ */
+typedef struct
+{
+  ETP_REQ *qs[ETP_NUM_PRI], *qe[ETP_NUM_PRI]; /* qstart, qend */
+  int size;
+} etp_reqq;
+
+struct etp_pool
+{
+   etp_reqq req_queue;
+   etp_reqq res_queue;
+};
+
+typedef struct etp_pool *etp_pool;
+
 typedef struct etp_worker
 {
+  etp_pool pool;
+
   struct etp_tmpbuf tmpbuf;
 
   /* locked by wrklock */
@@ -146,7 +167,7 @@ etp_worker_free (etp_worker *wrk)
 }
 
 ETP_API_DECL unsigned int
-etp_nreqs (void)
+etp_nreqs (etp_pool pool)
 {
   int retval;
   if (WORDACCESS_UNSAFE) X_LOCK   (reqlock);
@@ -156,7 +177,7 @@ etp_nreqs (void)
 }
 
 ETP_API_DECL unsigned int
-etp_nready (void)
+etp_nready (etp_pool pool)
 {
   unsigned int retval;
 
@@ -168,7 +189,7 @@ etp_nready (void)
 }
 
 ETP_API_DECL unsigned int
-etp_npending (void)
+etp_npending (etp_pool pool)
 {
   unsigned int retval;
 
@@ -180,7 +201,7 @@ etp_npending (void)
 }
 
 ETP_API_DECL unsigned int
-etp_nthreads (void)
+etp_nthreads (etp_pool pool)
 {
   unsigned int retval;
 
@@ -190,19 +211,6 @@ etp_nthreads (void)
 
   return retval;
 }
-
-/*
- * a somewhat faster data structure might be nice, but
- * with 8 priorities this actually needs <20 insns
- * per shift, the most expensive operation.
- */
-typedef struct {
-  ETP_REQ *qs[ETP_NUM_PRI], *qe[ETP_NUM_PRI]; /* qstart, qend */
-  int size;
-} etp_reqq;
-
-static etp_reqq req_queue;
-static etp_reqq res_queue;
 
 static void ecb_noinline ecb_cold
 reqq_init (etp_reqq *q)
@@ -259,15 +267,15 @@ reqq_shift (etp_reqq *q)
 }
 
 ETP_API_DECL int ecb_cold
-etp_init (void (*want_poll)(void), void (*done_poll)(void))
+etp_init (etp_pool pool, void (*want_poll)(void), void (*done_poll)(void))
 {
   X_MUTEX_CREATE (wrklock);
   X_MUTEX_CREATE (reslock);
   X_MUTEX_CREATE (reqlock);
   X_COND_CREATE  (reqwait);
 
-  reqq_init (&req_queue);
-  reqq_init (&res_queue);
+  reqq_init (&pool->req_queue);
+  reqq_init (&pool->res_queue);
 
   wrk_first.next =
   wrk_first.prev = &wrk_first;
@@ -306,6 +314,7 @@ X_THREAD_PROC (etp_proc)
   ETP_REQ *req;
   struct timespec ts;
   etp_worker *self = (etp_worker *)thr_arg;
+  etp_pool pool = self->pool;
 
   etp_proc_init ();
 
@@ -320,7 +329,7 @@ X_THREAD_PROC (etp_proc)
 
       for (;;)
         {
-          req = reqq_shift (&req_queue);
+          req = reqq_shift (&pool->req_queue);
 
           if (req)
             break;
@@ -365,7 +374,7 @@ X_THREAD_PROC (etp_proc)
 
       ++npending;
 
-      if (!reqq_push (&res_queue, req) && want_poll_cb)
+      if (!reqq_push (&pool->res_queue, req) && want_poll_cb)
         want_poll_cb ();
 
       etp_worker_clear (self);
@@ -384,12 +393,14 @@ quit:
 }
 
 static void ecb_cold
-etp_start_thread (void)
+etp_start_thread (etp_pool pool)
 {
   etp_worker *wrk = calloc (1, sizeof (etp_worker));
 
   /*TODO*/
   assert (("unable to allocate worker thread data", wrk));
+
+  wrk->pool = pool;
 
   X_LOCK (wrklock);
 
@@ -408,20 +419,20 @@ etp_start_thread (void)
 }
 
 static void
-etp_maybe_start_thread (void)
+etp_maybe_start_thread (etp_pool pool)
 {
-  if (ecb_expect_true (etp_nthreads () >= wanted))
+  if (ecb_expect_true (etp_nthreads (pool) >= wanted))
     return;
   
   /* todo: maybe use idle here, but might be less exact */
-  if (ecb_expect_true (0 <= (int)etp_nthreads () + (int)etp_npending () - (int)etp_nreqs ()))
+  if (ecb_expect_true (0 <= (int)etp_nthreads (pool) + (int)etp_npending (pool) - (int)etp_nreqs (pool)))
     return;
 
-  etp_start_thread ();
+  etp_start_thread (pool);
 }
 
 static void ecb_cold
-etp_end_thread (void)
+etp_end_thread (etp_pool pool)
 {
   ETP_REQ *req = calloc (1, sizeof (ETP_REQ)); /* will be freed by worker */
 
@@ -429,7 +440,7 @@ etp_end_thread (void)
   req->pri  = ETP_PRI_MAX - ETP_PRI_MIN;
 
   X_LOCK (reqlock);
-  reqq_push (&req_queue, req);
+  reqq_push (&pool->req_queue, req);
   X_COND_SIGNAL (reqwait);
   X_UNLOCK (reqlock);
 
@@ -439,7 +450,7 @@ etp_end_thread (void)
 }
 
 ETP_API_DECL int
-etp_poll (void)
+etp_poll (etp_pool pool)
 {
   unsigned int maxreqs;
   unsigned int maxtime;
@@ -457,16 +468,16 @@ etp_poll (void)
     {
       ETP_REQ *req;
 
-      etp_maybe_start_thread ();
+      etp_maybe_start_thread (pool);
 
       X_LOCK (reslock);
-      req = reqq_shift (&res_queue);
+      req = reqq_shift (&pool->res_queue);
 
       if (req)
         {
           --npending;
 
-          if (!res_queue.size && done_poll_cb)
+          if (!pool->res_queue.size && done_poll_cb)
             done_poll_cb ();
         }
 
@@ -508,25 +519,25 @@ etp_poll (void)
 }
 
 ETP_API_DECL void
-etp_grp_cancel (ETP_REQ *grp);
+etp_grp_cancel (etp_pool pool, ETP_REQ *grp);
 
 ETP_API_DECL void
-etp_cancel (ETP_REQ *req)
+etp_cancel (etp_pool pool, ETP_REQ *req)
 {
   req->cancelled = 1;
 
-  etp_grp_cancel (req);
+  etp_grp_cancel (pool, req);
 }
 
 ETP_API_DECL void
-etp_grp_cancel (ETP_REQ *grp)
+etp_grp_cancel (etp_pool pool, ETP_REQ *grp)
 {
   for (grp = grp->grp_first; grp; grp = grp->grp_next)
-    etp_cancel (grp);
+    etp_cancel (pool, grp);
 }
 
 ETP_API_DECL void
-etp_submit (ETP_REQ *req)
+etp_submit (etp_pool pool, ETP_REQ *req)
 {
   req->pri -= ETP_PRI_MIN;
 
@@ -544,7 +555,7 @@ etp_submit (ETP_REQ *req)
 
       ++npending;
 
-      if (!reqq_push (&res_queue, req) && want_poll_cb)
+      if (!reqq_push (&pool->res_queue, req) && want_poll_cb)
         want_poll_cb ();
 
       X_UNLOCK (reslock);
@@ -554,16 +565,16 @@ etp_submit (ETP_REQ *req)
       X_LOCK (reqlock);
       ++nreqs;
       ++nready;
-      reqq_push (&req_queue, req);
+      reqq_push (&pool->req_queue, req);
       X_COND_SIGNAL (reqwait);
       X_UNLOCK (reqlock);
 
-      etp_maybe_start_thread ();
+      etp_maybe_start_thread (pool);
     }
 }
 
 ETP_API_DECL void ecb_cold
-etp_set_max_poll_time (double nseconds)
+etp_set_max_poll_time (etp_pool pool, double nseconds)
 {
   if (WORDACCESS_UNSAFE) X_LOCK   (reslock);
   max_poll_time = nseconds * ETP_TICKS;
@@ -571,7 +582,7 @@ etp_set_max_poll_time (double nseconds)
 }
 
 ETP_API_DECL void ecb_cold
-etp_set_max_poll_reqs (unsigned int maxreqs)
+etp_set_max_poll_reqs (etp_pool pool, unsigned int maxreqs)
 {
   if (WORDACCESS_UNSAFE) X_LOCK   (reslock);
   max_poll_reqs = maxreqs;
@@ -579,7 +590,7 @@ etp_set_max_poll_reqs (unsigned int maxreqs)
 }
 
 ETP_API_DECL void ecb_cold
-etp_set_max_idle (unsigned int nthreads)
+etp_set_max_idle (etp_pool pool, unsigned int nthreads)
 {
   if (WORDACCESS_UNSAFE) X_LOCK   (reqlock);
   max_idle = nthreads;
@@ -587,7 +598,7 @@ etp_set_max_idle (unsigned int nthreads)
 }
 
 ETP_API_DECL void ecb_cold
-etp_set_idle_timeout (unsigned int seconds)
+etp_set_idle_timeout (etp_pool pool, unsigned int seconds)
 {
   if (WORDACCESS_UNSAFE) X_LOCK   (reqlock);
   idle_timeout = seconds;
@@ -595,19 +606,19 @@ etp_set_idle_timeout (unsigned int seconds)
 }
 
 ETP_API_DECL void ecb_cold
-etp_set_min_parallel (unsigned int nthreads)
+etp_set_min_parallel (etp_pool pool, unsigned int nthreads)
 {
   if (wanted < nthreads)
     wanted = nthreads;
 }
 
 ETP_API_DECL void ecb_cold
-etp_set_max_parallel (unsigned int nthreads)
+etp_set_max_parallel (etp_pool pool, unsigned int nthreads)
 {
   if (wanted > nthreads)
     wanted = nthreads;
 
   while (started > wanted)
-    etp_end_thread ();
+    etp_end_thread (pool);
 }
 
