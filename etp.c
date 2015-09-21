@@ -588,10 +588,10 @@ etp_submit (etp_pool pool, ETP_REQ *req)
 }
 
 ETP_API_DECL void ecb_cold
-etp_set_max_poll_time (etp_pool pool, double nseconds)
+etp_set_max_poll_time (etp_pool pool, double seconds)
 {
   if (WORDACCESS_UNSAFE) X_LOCK   (pool->reslock);
-  pool->max_poll_time = nseconds * ETP_TICKS;
+  pool->max_poll_time = seconds * ETP_TICKS;
   if (WORDACCESS_UNSAFE) X_UNLOCK (pool->reslock);
 }
 
@@ -604,10 +604,10 @@ etp_set_max_poll_reqs (etp_pool pool, unsigned int maxreqs)
 }
 
 ETP_API_DECL void ecb_cold
-etp_set_max_idle (etp_pool pool, unsigned int nthreads)
+etp_set_max_idle (etp_pool pool, unsigned int threads)
 {
   if (WORDACCESS_UNSAFE) X_LOCK   (pool->reqlock);
-  pool->max_idle = nthreads;
+  pool->max_idle = threads;
   if (WORDACCESS_UNSAFE) X_UNLOCK (pool->reqlock);
 }
 
@@ -620,17 +620,17 @@ etp_set_idle_timeout (etp_pool pool, unsigned int seconds)
 }
 
 ETP_API_DECL void ecb_cold
-etp_set_min_parallel (etp_pool pool, unsigned int nthreads)
+etp_set_min_parallel (etp_pool pool, unsigned int threads)
 {
-  if (pool->wanted < nthreads)
-    pool->wanted = nthreads;
+  if (pool->wanted < threads)
+    pool->wanted = threads;
 }
 
 ETP_API_DECL void ecb_cold
-etp_set_max_parallel (etp_pool pool, unsigned int nthreads)
+etp_set_max_parallel (etp_pool pool, unsigned int threads)
 {
-  if (pool->wanted > nthreads)
-    pool->wanted = nthreads;
+  if (pool->wanted > threads)
+    pool->wanted = threads;
 
   while (pool->started > pool->wanted)
     etp_end_thread (pool);
