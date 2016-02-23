@@ -124,6 +124,8 @@ static void eio_destroy (eio_req *req);
   #define dup2(fd1,fd2)        _dup2 (fd1, fd2)
   #define pipe(fds)            _pipe (fds, 4096, O_BINARY)
 
+  #define fcntl(fd,cmd,arg)    EIO_ENOSYS ()
+  #define ioctl(fd,cmd,arg)    EIO_ENOSYS ()
   #define fchmod(fd,mode)      EIO_ENOSYS ()
   #define chown(path,uid,gid)  EIO_ENOSYS ()
   #define fchown(fd,uid,gid)   EIO_ENOSYS ()
