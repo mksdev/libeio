@@ -44,11 +44,6 @@
 #include "eio.h"
 #include "ecb.h"
 
-#ifdef EIO_STACKSIZE
-# define X_STACKSIZE EIO_STACKSIZE
-#endif
-#include "xthread.h"
-
 #include <errno.h>
 #include <stddef.h>
 #include <stdlib.h>
@@ -285,10 +280,6 @@ static void eio_destroy (eio_req *req);
 
 #if HAVE_SYS_SYSCALL_H
 # include <sys/syscall.h>
-#endif
-
-#if HAVE_SYS_PRCTL_H
-# include <sys/prctl.h>
 #endif
 
 #if HAVE_SENDFILE
