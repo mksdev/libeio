@@ -203,11 +203,15 @@ static void eio_destroy (eio_req *req);
   symlink (const char *old, const char *neu)
   {
     #if WINVER >= 0x0600
-      if (CreateSymbolicLink (neu, old, 1))
-        return 0;
+      int flags;
 
-      if (CreateSymbolicLink (neu, old, 0))
-        return 0;
+      /* This tries out all combinations of SYMBOLIC_LINK_FLAG_DIRECTORY
+       * and SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE,
+       * with directory first.
+       */
+      for (flags = 3; flags >= 0; --flags)
+        if (CreateSymbolicLink (neu, old, flags))
+          return 0;
     #endif
 
     return EIO_ERRNO (ENOENT, -1);
