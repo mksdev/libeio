@@ -83,5 +83,6 @@ TODO: maybe work around 3.996gb barrier in pread/pwrite as well, maybe readahead
           trailing 0 byte) in readlink, realpath etc.
         - generate ENAMETOOLONG if readlink overflow is detected.
         - implement support for renameat2, and corresponding flags.
+        - add EIO_FALLOC_FL_INSERT_RANGE and EIO_FALLOC_FL_UNSHARE_RANGE.
 
 
