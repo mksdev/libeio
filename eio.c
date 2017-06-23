@@ -233,6 +233,7 @@ static void eio_destroy (eio_req *req);
 
 #else
 
+  #include <sys/ioctl.h>
   #include <sys/time.h>
   #include <sys/select.h>
   #include <unistd.h>
@@ -299,6 +300,11 @@ static void eio_destroy (eio_req *req);
 # else
 #  error sendfile support requested but not available
 # endif
+#endif
+
+#if HAVE_RENAMEAT2
+# include <sys/syscall.h>
+# include <linux/fs.h>
 #endif
 
 #ifndef D_TYPE
@@ -1679,6 +1685,19 @@ eio_wd_close_sync (eio_wd wd)
 
 #if HAVE_AT
 
+static int
+eio__renameat2 (int olddirfd, const char *oldpath, int newdirfd, const char *newpath, unsigned int flags)
+{
+#if HAVE_RENAMEAT2
+  return syscall (SYS_renameat2, olddirfd, oldpath, newdirfd, newpath, flags);
+#else
+  if (flags)
+    return EIO_ENOSYS ();
+
+  return renameat (olddirfd, oldpath, newdirfd, newpath);
+#endif
+}
+
 /* they forgot these */
 
 static int
@@ -1844,10 +1863,15 @@ eio_execute (etp_worker *self, eio_req *req)
                              ? rmdir (req->wd->str)
                              : unlinkat  (dirfd, req->ptr1, AT_REMOVEDIR); break;
       case EIO_MKDIR:     req->result = mkdirat   (dirfd, req->ptr1, (mode_t)req->int2); break;
-      case EIO_RENAME:    /* complications arise because "." cannot be renamed, so we might have to expand */
-                          req->result = req->wd && SINGLEDOT (req->ptr1)
-                             ? rename (req->wd->str, req->ptr2)
-                             : renameat (dirfd, req->ptr1, WD2FD ((eio_wd)req->int3), req->ptr2); break;
+      case EIO_RENAME:    req->result = eio__renameat2 (
+                            dirfd,
+                            /* complications arise because "." cannot be renamed, so we might have to expand */
+                            req->wd && SINGLEDOT (req->ptr1) ? req->wd->str : req->ptr1,
+                            WD2FD ((eio_wd)req->int3),
+                            req->ptr2,
+                            req->int2
+                          );
+                          break;
       case EIO_LINK:      req->result = linkat    (dirfd, req->ptr1, WD2FD ((eio_wd)req->int3), req->ptr2, 0); break;
       case EIO_SYMLINK:   req->result = symlinkat (req->ptr1, dirfd, req->ptr2); break;
       case EIO_MKNOD:     req->result = mknodat   (dirfd, req->ptr1, (mode_t)req->int2, (dev_t)req->offs); break;
@@ -1899,7 +1923,7 @@ eio_execute (etp_worker *self, eio_req *req)
       case EIO_UNLINK:    req->result = unlink    (path     ); break;
       case EIO_RMDIR:     req->result = rmdir     (path     ); break;
       case EIO_MKDIR:     req->result = mkdir     (path     , (mode_t)req->int2); break;
-      case EIO_RENAME:    req->result = rename    (path     , req->ptr2); break;
+      case EIO_RENAME:    req->result = req->int2 ? EIO_ENOSYS () : rename (path, req->ptr2); break;
       case EIO_LINK:      req->result = link      (path     , req->ptr2); break;
       case EIO_SYMLINK:   req->result = symlink   (path     , req->ptr2); break;
       case EIO_MKNOD:     req->result = mknod     (path     , (mode_t)req->int2, (dev_t)req->offs); break;

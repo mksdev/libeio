@@ -177,6 +177,15 @@ enum
   EIO_FALLOC_FL_ZERO_RANGE     = 0x10
 };
 
+/* eio_rename flags */
+enum
+{
+  /* these MUST match the value in linux/fs.h */
+  EIO_RENAME_NOREPLACE = 1 << 0,
+  EIO_RENAME_EXCHANGE  = 1 << 1,
+  EIO_RENAME_WHITEOUT  = 1 << 2
+};
+
 /* timestamps and differences - feel free to use double in your code directly */
 typedef double eio_tstamp;
 
@@ -259,7 +268,7 @@ struct eio_req
   eio_tstamp nv2;  /* utime, futime: mtime */
 
   int int1;        /* all applicable requests: file descriptor; sendfile: output fd; open, msync, mlockall, readdir: flags */
-  long int2;       /* chown, fchown: uid; sendfile: input fd; open, chmod, mkdir, mknod: file mode, seek: whence, fcntl, ioctl: request, sync_file_range, fallocate: flags */
+  long int2;       /* chown, fchown: uid; sendfile: input fd; open, chmod, mkdir, mknod: file mode, seek: whence, fcntl, ioctl: request, sync_file_range, fallocate, rename: flags */
   long int3;       /* chown, fchown: gid; rename, link: working directory of new name */
   int errorno;     /* errno value on syscall return */
 

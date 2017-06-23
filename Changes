@@ -82,5 +82,6 @@ TODO: maybe work around 3.996gb barrier in pread/pwrite as well, maybe readahead
         - support a minimum of EIO_PATH_MIN (default: 8160) as PATH_MAX (including
           trailing 0 byte) in readlink, realpath etc.
         - generate ENAMETOOLONG if readlink overflow is detected.
+        - implement support for renameat2, and corresponding flags.
 
 
