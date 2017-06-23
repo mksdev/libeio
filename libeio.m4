@@ -218,16 +218,17 @@ int main (void)
 ]])],ac_cv_renameat2=yes,ac_cv_renameat2=no)])
 test $ac_cv_renameat2 = yes && AC_DEFINE(HAVE_RENAMEAT2, 1, renameat2(2) is available)
 
-AC_CACHE_CHECK(for copy_file_frange, ac_cv_copy_file_frange, [AC_LINK_IFELSE([AC_LANG_SOURCE([[
+AC_CACHE_CHECK(for copy_file_range, ac_cv_copy_file_range, [AC_LINK_IFELSE([AC_LANG_SOURCE([[
 #include <unistd.h>
 #include <sys/syscall.h>
-#include <linux/copy.h>
+/*#include <linux/copy.h>*/
 int res;
 int main (void)
 {
-   res = syscall (SYS_copy_file_frange, 0, 0, 0, 0, 0, COPY_FR_REFLINK | COPY_FR_DEDUP | COPY_FR_COPY);
+   /*res = syscall (SYS_copy_file_range, 0, 0, 0, 0, 0, COPY_FR_REFLINK | COPY_FR_DEDUP | COPY_FR_COPY);*/
+   res = syscall (SYS_copy_file_range, 0, 0, 0, 0, 0, 0);
    return 0;
 }
-]])],ac_cv_copy_file_frange=yes,ac_cv_copy_file_frange=no)])
-test $ac_cv_copy_file_frange = yes && AC_DEFINE(HAVE_copy_file_frange, 1, copy_file_frange(2) is available)
+]])],ac_cv_copy_file_range=yes,ac_cv_copy_file_range=no)])
+test $ac_cv_copy_file_range = yes && AC_DEFINE(HAVE_copy_file_range, 1, copy_file_range(2) is available)
 
