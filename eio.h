@@ -332,6 +332,7 @@ unsigned int eio_nthreads (void); /* number of worker threads in use currently *
 
 /*****************************************************************************/
 /* convenience wrappers */
+/* these do not expose advanced syscalls and directory fds */
 
 #ifndef EIO_NO_WRAPPERS
 eio_req *eio_wd_open   (const char *path, int pri, eio_cb cb, void *data); /* result=wd */
