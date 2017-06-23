@@ -230,5 +230,5 @@ int main (void)
    return 0;
 }
 ]])],ac_cv_copy_file_range=yes,ac_cv_copy_file_range=no)])
-test $ac_cv_copy_file_range = yes && AC_DEFINE(HAVE_copy_file_range, 1, copy_file_range(2) is available)
+test $ac_cv_copy_file_range = yes && AC_DEFINE(HAVE_COPY_FILE_RANGE, 1, copy_file_range(2) is available)
 
