@@ -145,6 +145,21 @@ test $ac_cv_prctl_set_name = yes && AC_DEFINE(HAVE_PRCTL_SET_NAME, 1, prctl(PR_S
 dnl #############################################################################
 dnl # these checks exist for the benefit of IO::AIO
 
+AC_CACHE_CHECK(for set/getrlimit, ac_cv_rlimits, [AC_LINK_IFELSE([AC_LANG_SOURCE([[
+#include <sys/time.h>
+#include <sys/resource.h>
+int res;
+int main (void)
+{
+   struct rlimit srl;
+   srl.rlim_cur = srl.rlim_max = RLIM_INFINITY;
+   res = getrlimit (RLIMIT_NOFILE, &srl);
+   res = setrlimit (RLIMIT_NOFILE, &srl);
+   return 0;
+}
+]])],ac_cv_rlimits=yes,ac_cv_rlimits=no)])
+test $ac_cv_rlimits = yes && AC_DEFINE(HAVE_RLIMITS, 1, setrlimit/getrlimit is available)
+
 dnl at least uclibc defines _POSIX_ADVISORY_INFO without *any* of the required
 dnl functionality actually being present. ugh.
 AC_CACHE_CHECK(for posix_madvise, ac_cv_posix_madvise, [AC_LINK_IFELSE([AC_LANG_SOURCE([
