@@ -2336,7 +2336,7 @@ eio_req *eio_rename (const char *path, const char *new_path, int pri, eio_cb cb,
   return eio__2path (EIO_RENAME, path, new_path, pri, cb, data);
 }
 
-eio_req *eio_slurp (const char *path, void *buf, ssize_t length, off_t offset, int pri, eio_cb cb, void *data)
+eio_req *eio_slurp (const char *path, void *buf, size_t length, off_t offset, int pri, eio_cb cb, void *data)
 {
   REQ (EIO_SLURP); PATH; req->offs = offset; req->size = length; req->ptr2 = buf; SEND;
 }
