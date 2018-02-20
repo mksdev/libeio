@@ -220,6 +220,17 @@ int main (void)
 ]])],ac_cv_pipe2=yes,ac_cv_pipe2=no)])
 test $ac_cv_pipe2 = yes && AC_DEFINE(HAVE_PIPE2, 1, pipe2(2) is available)
 
+AC_CACHE_CHECK(for eventfd, ac_cv_eventfd, [AC_LINK_IFELSE([AC_LANG_SOURCE([[
+#include <sys/eventfd.h>
+int res;
+int main (void)
+{
+   res = eventfd (1, EFD_CLOEXEC | EFD_NONBLOCK);
+   return 0;
+}
+]])],ac_cv_eventfd=yes,ac_cv_eventfd=no)])
+test $ac_cv_eventfd = yes && AC_DEFINE(HAVE_EVENTFD, 1, eventfd(2) is available)
+
 AC_CACHE_CHECK(for renameat2, ac_cv_renameat2, [AC_LINK_IFELSE([AC_LANG_SOURCE([[
 #include <unistd.h>
 #include <sys/syscall.h>
