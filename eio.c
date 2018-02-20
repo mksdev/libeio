@@ -102,8 +102,6 @@ static void eio_destroy (eio_req *req);
   #undef PAGESIZE
   #define PAGESIZE 4096 /* GetSystemInfo? */
 
-  #define O_CLOEXEC 0
-
   /* TODO: look at how perl does stat (non-sloppy), unlink (ro-files), utime, link */
 
   #ifdef EIO_STRUCT_STATI64
@@ -327,6 +325,10 @@ static void eio_destroy (eio_req *req);
 /* used for readlink etc. */
 #ifndef PATH_MAX
 # define PATH_MAX 0
+#endif
+
+#ifndef O_CLOEXEC
+  #define O_CLOEXEC 0
 #endif
 
 #ifndef EIO_PATH_MIN
