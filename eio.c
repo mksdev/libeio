@@ -961,9 +961,9 @@ eio__mtouch (eio_req *req)
 
     if (addr < end)
       if (flags & EIO_MT_MODIFY) /* modify */
-        do { *((volatile sig_atomic_t *)addr) |= 0; } while ((addr += page) < len && !EIO_CANCELLED (req));
+        do { *((volatile sig_atomic_t *)addr) |= 0; } while ((addr += page) < end && !EIO_CANCELLED (req));
       else
-        do { *((volatile sig_atomic_t *)addr)     ; } while ((addr += page) < len && !EIO_CANCELLED (req));
+        do { *((volatile sig_atomic_t *)addr)     ; } while ((addr += page) < end && !EIO_CANCELLED (req));
   }
 
   return 0;
