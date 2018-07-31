@@ -1683,7 +1683,7 @@ eio__wd_open_sync (struct etp_tmpbuf *tmpbuf, eio_wd wd, const char *path)
 eio_wd
 eio_wd_open_sync (eio_wd wd, const char *path)
 {
-  struct etp_tmpbuf tmpbuf = { };
+  struct etp_tmpbuf tmpbuf = { 0 };
   wd = eio__wd_open_sync (&tmpbuf, wd, path);
   free (tmpbuf.ptr);
 
