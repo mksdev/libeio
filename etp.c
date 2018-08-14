@@ -41,6 +41,11 @@
 # include <sys/prctl.h>
 #endif
 
+#ifdef EIO_STACKSIZE
+# define X_STACKSIZE EIO_STACKSIZE
+#endif
+#include "xthread.h"
+
 #ifndef ETP_API_DECL
 # define ETP_API_DECL static
 #endif
