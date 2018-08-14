@@ -37,15 +37,6 @@
  * either the BSD or the GPL.
  */
 
-#if HAVE_SYS_PRCTL_H
-# include <sys/prctl.h>
-#endif
-
-#ifdef EIO_STACKSIZE
-# define X_STACKSIZE EIO_STACKSIZE
-#endif
-#include "xthread.h"
-
 #ifndef ETP_API_DECL
 # define ETP_API_DECL static
 #endif
@@ -320,7 +311,7 @@ etp_proc_init (void)
 {
 #if HAVE_PRCTL_SET_NAME
   /* provide a more sensible "thread name" */
-  char name[15 + 1];
+  char name[16 + 1];
   const int namelen = sizeof (name) - 1;
   int len;
 
