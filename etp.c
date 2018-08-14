@@ -37,6 +37,10 @@
  * either the BSD or the GPL.
  */
 
+#if HAVE_SYS_PRCTL_H
+# include <sys/prctl.h>
+#endif
+
 #ifndef ETP_API_DECL
 # define ETP_API_DECL static
 #endif
