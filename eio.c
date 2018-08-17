@@ -331,6 +331,18 @@ static void eio_destroy (eio_req *req);
   #define O_CLOEXEC 0
 #endif
 
+#ifndef O_NONBLOCK
+  #define O_NONBLOCK 0
+#endif
+
+#ifndef O_SEARCH
+  #define O_SEARCH O_RDONLY
+#endif
+
+#ifndef O_DIRECTORY
+  #define O_DIRECTORY 0
+#endif
+
 #ifndef EIO_PATH_MIN
 # define EIO_PATH_MIN 8160
 #endif
@@ -356,9 +368,6 @@ struct etp_tmpbuf;
 #if _POSIX_VERSION >= 200809L
   #define HAVE_AT 1
   #define WD2FD(wd) ((wd) ? (wd)->fd : AT_FDCWD)
-  #ifndef O_SEARCH
-    #define O_SEARCH O_RDONLY
-  #endif
 #else
   #define HAVE_AT 0
   static const char *wd_expand (struct etp_tmpbuf *tmpbuf, eio_wd wd, const char *path);
@@ -1398,7 +1407,7 @@ eio__scandir (eio_req *req, etp_worker *self)
 #else
   #if HAVE_AT
     {
-      int fd = openat (WD2FD (req->wd), req->ptr1, O_CLOEXEC | O_SEARCH | O_DIRECTORY);
+      int fd = openat (WD2FD (req->wd), req->ptr1, O_CLOEXEC | O_SEARCH | O_DIRECTORY | O_NONBLOCK);
 
       if (fd < 0)
         return;
@@ -1661,7 +1670,7 @@ eio__wd_open_sync (struct etp_tmpbuf *tmpbuf, eio_wd wd, const char *path)
     return EIO_INVALID_WD;
 
 #if HAVE_AT
-  fd = openat (WD2FD (wd), path, O_CLOEXEC | O_SEARCH | O_DIRECTORY);
+  fd = openat (WD2FD (wd), path, O_CLOEXEC | O_SEARCH | O_DIRECTORY | O_NONBLOCK);
 
   if (fd < 0)
     return EIO_INVALID_WD;
@@ -1722,7 +1731,7 @@ eio__renameat2 (int olddirfd, const char *oldpath, int newdirfd, const char *new
 static int
 eio__truncateat (int dirfd, const char *path, off_t length)
 {
-  int fd = openat (dirfd, path, O_WRONLY | O_CLOEXEC);
+  int fd = openat (dirfd, path, O_WRONLY | O_CLOEXEC | O_NONBLOCK);
   int res;
 
   if (fd < 0)
@@ -1736,7 +1745,7 @@ eio__truncateat (int dirfd, const char *path, off_t length)
 static int
 eio__statvfsat (int dirfd, const char *path, struct statvfs *buf)
 {
-  int fd = openat (dirfd, path, O_SEARCH | O_CLOEXEC);
+  int fd = openat (dirfd, path, O_SEARCH | O_CLOEXEC | O_NONBLOCK);
   int res;
 
   if (fd < 0)

@@ -90,5 +90,6 @@ TODO: pthread_condattr_setclock(..., CLOCK_MONOTONIC) and clock_gettime(CLOCK_MO
         - add EIO_SLURP convenience request.
         - update configure.ac for newer autoconf/automake.
         - include sys/prctl.h if available.
+        - use O_NONBLOCK when opening directories and in truncateat and statvfsat.
 
 
