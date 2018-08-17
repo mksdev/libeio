@@ -1406,14 +1406,17 @@ eio__scandir (eio_req *req, etp_worker *self)
       dirp = fdopendir (fd);
 
       if (!dirp)
-        silent_close (fd);
+        {
+          silent_close (fd);
+          return;
+        }
     }
   #else
     dirp = opendir (wd_expand (&self->tmpbuf, req->wd, req->ptr1));
-  #endif
 
-  if (!dirp)
-    return;
+    if (!dirp)
+      return;
+  #endif
 #endif
 
   if (req->flags & EIO_FLAG_PTR1_FREE)
