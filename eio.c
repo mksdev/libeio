@@ -1397,20 +1397,17 @@ eio__scandir (eio_req *req, etp_worker *self)
   }
 #else
   #if HAVE_AT
-    if (req->wd)
-      {
-        int fd = openat (WD2FD (req->wd), req->ptr1, O_CLOEXEC | O_SEARCH | O_DIRECTORY);
+    {
+      int fd = openat (WD2FD (req->wd), req->ptr1, O_CLOEXEC | O_SEARCH | O_DIRECTORY);
 
-        if (fd < 0)
-          return;
+      if (fd < 0)
+        return;
 
-        dirp = fdopendir (fd);
+      dirp = fdopendir (fd);
 
-        if (!dirp)
-          silent_close (fd);
-      }
-    else
-      dirp = opendir (req->ptr1);
+      if (!dirp)
+        silent_close (fd);
+    }
   #else
     dirp = opendir (wd_expand (&self->tmpbuf, req->wd, req->ptr1));
   #endif
