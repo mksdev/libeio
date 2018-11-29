@@ -2429,3 +2429,8 @@ eio_sendfile_sync (int ofd, int ifd, off_t offset, size_t count)
   return eio__sendfile (ofd, ifd, offset, count);
 }
 
+int eio_mlockall_sync (int flags)
+{
+  return eio__mlockall (flags);
+}
+

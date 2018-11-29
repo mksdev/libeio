@@ -92,5 +92,6 @@ TODO: pthread_condattr_setclock(..., CLOCK_MONOTONIC) and clock_gettime(CLOCK_MO
         - include sys/prctl.h if available.
         - use O_NONBLOCK when opening directories and in truncateat and statvfsat.
         - add EIO_MCL_ONFAULT.
+        - add eio_mlockall_sync.
 
 
