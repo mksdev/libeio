@@ -904,12 +904,21 @@ eio__mlockall (int flags)
     mallopt (-6, 238); /* http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=473812 */
   #endif
 
-  if (EIO_MCL_CURRENT   != MCL_CURRENT
-      || EIO_MCL_FUTURE != MCL_FUTURE)
+  #ifndef MCL_ONFAULT
+    if (flags & EIO_MCL_ONFAULT)
+      return EIO_ERRNO (EINVAL, -1);
+    #define MCL_ONFAULT 4
+  #endif
+
+  if (EIO_MCL_CURRENT     != MCL_CURRENT
+      || EIO_MCL_FUTURE   != MCL_FUTURE
+      || EIO_MCL_ONFAULT  != MCL_ONFAULT)
     {
       flags = 0
          | (flags & EIO_MCL_CURRENT ? MCL_CURRENT : 0)
-         | (flags & EIO_MCL_FUTURE  ? MCL_FUTURE : 0);
+         | (flags & EIO_MCL_FUTURE  ? MCL_FUTURE  : 0)
+         | (flags & EIO_MCL_ONFAULT ? MCL_ONFAULT : 0)
+      ;
     }
 
   return mlockall (flags);
